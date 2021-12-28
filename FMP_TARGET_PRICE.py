@@ -227,58 +227,6 @@ class Target_Price:
         else:
             return (False,None)
 
-class Target_Prices_Bank:
-
-    def __init__(self,alerts):
-        self._alerts = alerts
-
-    def set_price_data(self,price_data):
-
-      for alert in self._alerts:
-
-        alert.set_prices(price_data)
-
-    def get_non_crypto_tickers(self):
-
-      alerts = self.get_alerts()
-
-      non_crypto_tickers = [alert._target_ticker for alert in alerts if alert._is_crypto == False]
-
-      return non_crypto_tickers
-
-    def count_alerts(self):
-        return len(self._alerts)
-
-    def get_alerts(self):
-        return self._alerts
-
-    def append_alert(self,alert:Target_Price):
-
-        self._alerts.append(alert)
-
-    def get_summary(self):
-
-      alerts = self.get_alerts()
-      n_alerts = self.count_alerts()
-
-      deactivated_alerts = [deactivated for deactivated in alerts if deactivated._expired == True]
-
-      activated_alerts = [deactivated for deactivated in alerts if deactivated._expired == False]
-
-      n_alerts_deactivated = len(deactivated_alerts)
-
-      n_alerts_activated = len(activated_alerts)
-
-      text = f""" 
-
-      Number of Deactivated Alerts: {n_alerts_deactivated}
-      
-      Number of Activated Alerts: {n_alerts_activated}
-      
-      """
-
-      return text    
-
 
 
 
