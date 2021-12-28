@@ -518,7 +518,4 @@ class FMP_CONNECTION(object):
         else:
             return None
 
-    def myprint(self):
-        print("Hello World!")
-
     
