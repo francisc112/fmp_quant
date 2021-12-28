@@ -98,6 +98,28 @@ class FMP_TA:
         
         return my_df
 
+
+
+    def crossing(self,df:pd.DataFrame,
+                 price:str,
+                 close:str = 'close',
+                 open:str = 'open',
+                 low:str = 'low',
+                 high:str = 'high',
+                 direction:str = 'up'):
+        
+        if direction == 'up':
+
+            return np.where((df[open] < df[price]) & (df[close] > df[price]),1,0)
+
+        elif direction == 'down':
+
+            return np.where((df[open] > df[price]) & (df[close] < df[price]),1,0)
+
+        else:
+
+            raise ValueError(f"{direction} is not available, only up or down")
+
     def get_strategy_I(self,df:pd.DataFrame, close:str = 'close',
                     high:str = 'high',
                     low:str = 'low',
@@ -112,9 +134,45 @@ class FMP_TA:
         ta_df = self.get_PSAR(df=ta_df,high=high,low=low,close=close)
         
         ta_df = self.get_RSI(df=ta_df,close=close)
+
+        ta_df['Crossing Down EMA 20'] = self.crossing(ta_df,price='EMA 20',direction='down')
+
+        ta_df['Crossing Down EMA 50'] = self.crossing(ta_df,price='EMA 50', direction='down')
+
+        ta_df['Crossing Down EMA 200'] = self.crossing(ta_df,price='EMA 200', direction='down')
+
+        ta_df['Crossing Up EMA 20'] = self.crossing(ta_df,price='EMA 20', direction='up')
+
+        ta_df['Crossing Up EMA 50'] = self.crossing(ta_df,price='EMA 50', direction='up')
+
+        ta_df['Crossing Up EMA 200'] = self.crossing(ta_df,price='EMA 200', direction='up')
+
+        ta_df['Entering Sell Zone'] = self.crossing(ta_df,price='Bollinger Band Low Dev 1',direction='down')
+
+        ta_df['Entering Buy Zone'] = self.crossing(ta_df,price='Bollinger Band High Dev 1',direction='up')
         
         return ta_df
         
+    def get_last_action(self,df:pd.DataFrame):
+
+        alert_cols = ['Crossing Down EMA 20','Crossing Down EMA 50', 'Crossing Down EMA 200', 'Crossing Up EMA 20', 'Crossing Up EMA 50', 'Crossing Up EMA 200','Entering Sell Zone', 'Entering Buy Zone']
+
+        most_recent_action = df.tail(1)
+
+        if most_recent_action['Most Recent Action'].values[0] == 1:
+
+            melt_alert = most_recent_action[alert_cols].melt(var_name='Message', value_name='Indicator')
+
+            target_message = melt_alert[melt_alert['Indicator'] == 1].values[0][0]
+
+            alert_time, alert_stock, alert_price = most_recent_action[['symbol', 'close']].reset_index().values.tolist()[0]
+
+            alert_time = alert_time.strftime("%Y-%m-%d, %H:%M:%S")
+
+            return f'{alert_stock}: {target_message} at {alert_time} @ {alert_price}'
+
+        else:
+            return None
     
     
     
