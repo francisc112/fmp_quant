@@ -1,25 +1,26 @@
 # FMP Module for Target Prices
 
+from ctypes import Union
 import pandas as pd
 import numpy as np
+from typing import Type, Union
 
 class Target_Price:
 
     def __init__(self,
                  target_ticker:str,
                  option:str,
+                 price:float,
                  price_data:pd.DataFrame = None,
-                 target_price:float = None,
+                 target_price:Union[float,str]= None,
                  var_price:float = 10,
-                 high_channel:float = None,
-                 low_channel:float = None,
+                 high_channel:Union[float,str] = None,
+                 low_channel:Union[float,str] = None,
                  moving_up_pct:float = None,
-                 moving_down_pct:float = None,
-                 only_once:bool = True,
-                 extra_text:str = None,
-                 is_crypto:bool = True):
+                 moving_down_pct:float = None):
 
-        self._price_data = price_data,
+        self._price_data = price_data
+        self._price = price
         self._target_ticker = target_ticker
         self._option = option
         self._target_price = target_price
@@ -28,10 +29,6 @@ class Target_Price:
         self._low_channel = low_channel
         self._moving_up_pct = moving_up_pct
         self._moving_down_pct = moving_down_pct
-        self._only_once = only_once
-        self._expired = False
-        self._extra_text = extra_text
-        self._is_crypto = is_crypto
 
 
     def set_prices(self,price_data):
@@ -66,23 +63,53 @@ class Target_Price:
     def reset_expiration(self):
       self._expired = False
 
-    def get_target_price(self) -> float:
+    def get_price_df(self) -> pd.Series:
 
-        return self._target_price
+        if isinstance(self._price_data,tuple):
+            return self._price_data[0]
+
+        elif isinstance(self._price_data, pd.DataFrame):
+            return self._price_data
+        else:
+            return self._price_data
+
+    def get_target_price(self) -> pd.Series:
+
+        """ 
+        Return Target Price Series, if the target price is just a number,
+        it will create a pd.Series the size of the given dataframe
+        
+        """
+
+        price_data = self.get_price_df()
+
+        if isinstance(self._target_price,float):
+
+            tseries = pd.Series([self._target_price] * price_data.shape[0])
+
+            tseries.index = price_data.index
+
+            return tseries
+
+        elif isinstance(self._target_price, pd.Series):
+
+            return self._target_price
+
+        elif isinstance(self._target_price, str):
+
+            nseries = price_data[self._target_price]
+
+            return nseries
+
+        else:
+
+            raise TypeError(f'Target Price must be either a float or a Pandas Series, its a ',type(self._target_price))
 
 
 
     def get_current_price(self) -> float:
 
-      price_df = self._price_data
-
-      if not isinstance(price_df,pd.DataFrame): raise TypeError('Price data is not a dataframe')
-        
-      current_asset = price_df[price_df.index == self._target_ticker]
-
-      current_price = current_asset['price'].values[0]
-
-      return current_price
+        return self.get_price_df()[self._price]
 
         
 
@@ -94,19 +121,16 @@ class Target_Price:
 
         current_price = self.get_current_price()
 
-        low_range = self._target_price - self._var_price
+        target_price = self.get_target_price()
 
-        high_range = self._target_price + self._var_price
+        low_range = target_price - self._var_price
 
-        if current_price <= high_range and current_price >= low_range:
+        high_range = target_price + self._var_price
 
-            self._message = f'Target Price of {self._target_price} for {self._target_ticker} is triggered, current price is {current_price}'
+        nseries = pd.Series(np.where((current_price <= high_range) & (current_price >= low_range),1,0))
+        nseries.index = self.get_price_df().index 
 
-            return True
-
-        else:
-
-            return False
+        return nseries
 
     def greater_less_than(self,option:str = 'Greater Than'):
 
@@ -115,56 +139,71 @@ class Target_Price:
         target_price = self.get_target_price()
 
         if option == 'Greater Than':
-            
-            if current_price > target_price:
 
-                self._message  = f'Current price for {self._target_ticker} is greater than {target_price}. Current price is {current_price}'
+            nseries = pd.Series(np.where(current_price > target_price,1,0))
 
-                return True
-            else:
-                return False
+            nseries.index = self.get_price_df().index
+
+            return nseries
         
         elif option == 'Less Than':
 
-            if current_price < target_price:
 
-                self._message = f'Current price for {self._target_ticker} is less than {target_price}. Current price is {current_price}'
+            nseries = pd.Series(np.where(current_price > target_price,0,1))
 
-                return True
-            else:
-                 return False
+            nseries.index = self.get_price_df().index
+
+            return nseries
+
+            
         else:
             raise ValueError(f'{option} as an option is  not supported. Must be either Greater Than or Less Than')
         
     def inside_outside_channel(self,option:str = 'Inside Channel'):
 
-        current_price = self.get_current_price()
+        price_df = self.get_price_df()
 
-        high_channel = self._high_channel
+        if isinstance(self._high_channel,float):
 
-        low_channel = self._low_channel
+            high_channel = self._high_channel
+        
+        elif isinstance(self._high_channel, str):
+
+            high_channel = price_df[self._high_channel]
+
+        else:
+            raise TypeError('High Channel must be either a col name or a float, its',type(self._high_channel))
+
+        
+        if isinstance(self._low_channel,float):
+
+
+            low_channel = self._low_channel
+        elif isinstance(self._low_channel, str):
+
+            low_channel = price_df[self._low_channel]
+
+        else:
+            raise TypeError('Low Channel must be either a col name or a float, its', type(self._low_channel))
+
+        
+        prices = self.get_current_price()
+
 
         if option == 'Inside Channel':
 
-            if current_price <= high_channel and current_price >= low_channel:
-
-                self._message = f'Current price for {self._target_ticker} is inside channel between {low_channel} and {high_channel} with price of {current_price}'
-                
-                return True
-            else:
-                return False
+            nseries = pd.Series(np.where((prices <= high_channel) & (prices >= low_channel),1,0))
 
         elif option == 'Outside Channel':
 
-            if not (current_price <= high_channel and current_price >= low_channel):
+            nseries = pd.Series(np.where((prices <= high_channel) & (prices >= low_channel),0,1))
 
-                self._message = f'Current price for {self._target_ticker} is outside channel between {low_channel} and {high_channel} with price of {current_price}'
-                
-                return True
-            else:
-                return False
         else:
-            raise ValueError(f'{option} as an option is not supported. Must be either Inside Channel or Outside Channel')
+            raise TypeError('Unsupported option, must be either Inside Channel or Outside Channel')
+
+        nseries.index = price_df.index
+
+        return nseries
 
 
     def moving_up_down_pct(self,option='Moving Up %'):
@@ -175,136 +214,27 @@ class Target_Price:
 
         change = (current_price / target_price - 1) * 100
 
+        prices_df = self.get_price_df()
+
         if option == 'Moving Up %':
 
             target_change = self._moving_up_pct
 
-            if change >= target_change:
+            nseries = pd.Series(np.where(change >= target_change,1,0))
 
-                self._message = f'Current price for {self._target_ticker} at {current_price} is greater than or equal to {target_change}% from {target_price}'
-                
-                return True
-            else:
-                return False
-        
         elif option == 'Moving Down %':
 
             target_change = self._moving_down_pct
 
-            if change <= target_change:
-
-                self._message = f'Current price for {self._target_ticker} at {current_price} is less than or equal to {target_change}% from {target_price}'
-
-                return True
-            else:
-                return False
+            nseries = pd.Series(np.where(change <= target_change,1,0))
 
         else:
 
-            raise ValueError(f'{option} is not supported, must be either Moving Up % or Moving Down %')
+            raise TypeError('Unsupported option, must be either Moving Up % or Moving Down %')
 
-    
-    def run(self):
+        nseries.index = prices_df.index
 
-        if self._expired == True: return (False,None)
-
-        if self._price_data is None: return (False,None)
-        
-        option = self._option
-
-        state:bool = False
-
-        if option == 'Equals':
-            
-            state = self.equals()
-
-        elif option == 'Greater Than' or option == 'Less Than':
-            state = self.greater_less_than(option=option)
-        
-        elif option == 'Inside Channel' or option == 'Outside Channel':
-            state = self.inside_outside_channel(option=option)
-
-        elif option == 'Moving Up %' or option == 'Moving Down %':
-            state = self.moving_up_down_pct(option=option)
-        else:
-            raise ValueError(f'{option} not supported: Use the following:Equals, Greater Than, Less Than, Inside Channel, Outside Channel,Moving Up %, Moving Down %')
-
-        if state == True:
-
-            if self._only_once == True: self.set_expired_alert()
-
-            msg = self._message + ' ' + self._extra_text if self._extra_text is not None else self._message
-
-            return (True, msg)
-
-        else:
-            return (False,None)
-
-class Target_Prices_Bank:
-
-    def __init__(self,alerts):
-        self._alerts = alerts
-
-    def set_price_data(self,price_data):
-
-      for alert in self._alerts:
-
-        alert.set_prices(price_data)
-
-    def get_non_crypto_tickers(self):
-
-      alerts = self.get_alerts()
-
-      non_crypto_tickers = [alert._target_ticker for alert in alerts if alert._is_crypto == False]
-
-      return non_crypto_tickers
-
-    def count_alerts(self):
-        return len(self._alerts)
-
-    def get_alerts(self):
-        return self._alerts
-
-    def append_alert(self,alert:Target_Price):
-
-        self._alerts.append(alert)
-
-    def get_summary(self):
-
-      alerts = self.get_alerts()
-      n_alerts = self.count_alerts()
-
-      deactivated_alerts = [deactivated for deactivated in alerts if deactivated._expired == True]
-
-      activated_alerts = [deactivated for deactivated in alerts if deactivated._expired == False]
-
-      n_alerts_deactivated = len(deactivated_alerts)
-
-      n_alerts_activated = len(activated_alerts)
-
-      text = f""" 
-
-      Number of Deactivated Alerts: {n_alerts_deactivated}
-      
-      Number of Activated Alerts: {n_alerts_activated}
-      
-      """
-
-      return text
-
-    def reset_expirations(self):
-
-      for idx,alert in enumerate(self._alerts):
-
-        new_alert = alert
-        new_alert.reset_expiration()
-
-        self._alerts[idx] = new_alert        
-
-
-
-
-
+        return nseries
 
         
 
