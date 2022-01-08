@@ -6,11 +6,27 @@ import numpy as np
 from typing import Type, Union
 
 class Target_Price:
+    """ 
+    Options:
+
+    Equals
+    Greater Than
+    Less Than
+    Inside Channel
+    Outside Channel
+    Moving Up %
+    Moving Down %
+    Crossing Up
+    Crossing Down
+    Bouncing Up
+    Bouncing Down
+    
+    """
 
     def __init__(self,
                  target_ticker:str,
-                 option:str,
                  price:float,
+                 option:str = None,
                  price_data:pd.DataFrame = None,
                  target_price:Union[float,str]= None,
                  var_price:float = 10,
@@ -79,6 +95,18 @@ class Target_Price:
         else:
             return self._price_data
 
+    def get_target_series(self,df:pd.DataFrame, val:Union[float,int,str]):
+
+        if isinstance(val,int) or isinstance(val,float):
+
+            return val
+        elif isinstance(val,str):
+
+            return df[val]
+        else:
+
+            raise TypeError('Val must be either a float, int or col name')
+
     def get_target_price(self) -> pd.Series:
 
         """ 
@@ -122,27 +150,37 @@ class Target_Price:
     # Options Logic
 
     
-    def equals(self):
+    def equals(self,target_price=None): 
         
+        price_df = self.get_price_df()
+
+        target_price = self._target_price if target_price is None else target_price
+
+        target_price = self.get_target_series(price_df,target_price)
 
         current_price = self.get_current_price()
-
-        target_price = self.get_target_price()
 
         low_range = target_price - self._var_price
 
         high_range = target_price + self._var_price
 
         nseries = pd.Series(np.where((current_price <= high_range) & (current_price >= low_range),1,0))
+
         nseries.index = self.get_price_df().index 
 
         return nseries
 
-    def greater_less_than(self,option:str = 'Greater Than'):
+    def greater_less_than(self,option:str,target_price=None):
+
+
 
         current_price = self.get_current_price()
 
-        target_price = self.get_target_price()
+        prices_df = self.get_price_df()
+
+        target_price = self._target_price if target_price is None else target_price
+
+        target_price = self.get_target_series(prices_df, target_price)
 
         if option == 'Greater Than':
 
@@ -165,17 +203,19 @@ class Target_Price:
         else:
             raise ValueError(f'{option} as an option is  not supported. Must be either Greater Than or Less Than')
         
-    def inside_outside_channel(self,option:str = 'Inside Channel'):
+    def inside_outside_channel(self,option:str,high_channel_price=None,low_channel_price=None):
 
         price_df = self.get_price_df()
 
         if isinstance(self._high_channel,float):
 
-            high_channel = self._high_channel
+            high_channel = self._high_channel if high_channel_price is None else high_channel_price
         
         elif isinstance(self._high_channel, str):
 
-            high_channel = price_df[self._high_channel]
+            high_channel_col = self._high_channel if high_channel_price is None else high_channel_price
+
+            high_channel = price_df[high_channel_col]
 
         else:
             raise TypeError('High Channel must be either a col name or a float, its',type(self._high_channel))
@@ -183,11 +223,13 @@ class Target_Price:
         
         if isinstance(self._low_channel,float):
 
+            low_channel = self._low_channel if low_channel_price is None else low_channel_price
 
-            low_channel = self._low_channel
         elif isinstance(self._low_channel, str):
 
-            low_channel = price_df[self._low_channel]
+            low_channel_col = self._low_channel if low_channel_price is None else low_channel_price
+
+            low_channel = price_df[low_channel_col]
 
         else:
             raise TypeError('Low Channel must be either a col name or a float, its', type(self._low_channel))
@@ -212,11 +254,15 @@ class Target_Price:
         return nseries
 
 
-    def moving_up_down_pct(self,option='Moving Up %'):
+    def moving_up_down_pct(self,option:str,target_price=None):
 
         current_price = self.get_current_price()
 
-        target_price = self.get_target_price()
+        price_df = self.get_price_df()
+
+        target_price = self._target_price if target_price is None else target_price
+
+        target_price = self.get_target_series(price_df,target_price)
 
         change = (current_price / target_price - 1) * 100
 
@@ -242,49 +288,38 @@ class Target_Price:
 
         return nseries
 
-    def crossing(self):
+    def crossing(self,option:str,target_price = None):
 
-        open_price = 0
-        target_price = 0
-        close_price = 0 
+        price_df = self.get_price_df()
 
         # Check if Open is of a correct type
         if isinstance(self._open,float) or isinstance(self._open,int):
             open_price = self._open
         elif isinstance(self._open, str):
-            open_price = self.get_price_df()[self._open]
+            open_price = price_df[self._open]
         else:
             raise TypeError('option must be either a float, int or column name')
 
-        # Check if Target Price has a correct type
-        
-        if isinstance(self._target_price,float) or isinstance(self._target_price, int):
-
-            target_price = self._target_price
-
-        elif isinstance(self._target_price, str):
-
-            target_price = self.get_price_df()[self._target_price]
-
-        else:
-            raise TypeError('target price must be either a float,int or column name')
-
         # Check if closing price has a correct type
+
+        target_price_value = self._target_price if target_price is None else target_price
+
+        target_price_series = self.get_target_series(price_df,target_price_value)
 
 
         if isinstance(self._price,float) or isinstance(self._price, int):
             close_price = self._price
         elif isinstance(self._price, str):
-            close_price = self.get_price_df()[self._price]
+            close_price = price_df[self._price]
         else:
             raise TypeError('Close price must be either a float,int or column name')
 
 
-        if self._option == 'Crossing Up':
-            nseries = np.where((open_price < target_price) & (close_price > target_price), 1, 0)
+        if option == 'Crossing Up':
+            nseries = np.where((open_price < target_price_series) & (close_price > target_price_series), 1, 0)
 
-        elif self._option == 'Crossing Down':
-            nseries = np.where((open_price > target_price) & (close_price < target_price), 1, 0)
+        elif option == 'Crossing Down':
+            nseries = np.where((open_price > target_price_series) & (close_price < target_price_series), 1, 0)
         else:
             raise TypeError('option must be either Crossing Up or Crossing Down')
 
@@ -293,7 +328,7 @@ class Target_Price:
 
         return nseries
 
-    def bouncing(self):
+    def bouncing(self,option:str,target_price = None):
 
         price_df = self.get_price_df()
 
@@ -316,17 +351,19 @@ class Target_Price:
 
         high_price = get_value(self._high)
 
-        target_price = get_value(self._target_price)
+        target_price_val = self._target_price if target_price is None else target_price
 
-        if self._option == 'Bouncing Up':
+        target_price_series = self.get_target_series(price_df,target_price_val)
 
-            bouncing_up_condition = (open_price > target_price) & (low_price <= target_price) & (close_price >= target_price)
+        if option == 'Bouncing Up':
+
+            bouncing_up_condition = (open_price > target_price_series) & (low_price <= target_price_series) & (close_price >= target_price_series)
 
             nseries = np.where(bouncing_up_condition,1,0)
 
-        elif self._option == 'Bouncing Down':
+        elif option == 'Bouncing Down':
 
-            bouncing_down_condition = (high_price > target_price) & (close_price <= target_price) & (open_price <= target_price)
+            bouncing_down_condition = (high_price > target_price_series) & (close_price <= target_price_series) & (open_price <= target_price_series)
 
             nseries = np.where(bouncing_down_condition,1,0)
 
@@ -338,7 +375,6 @@ class Target_Price:
         nseries.index = price_df.index
 
         return nseries
-
 
 
 

@@ -135,21 +135,7 @@ class FMP_TA:
         
         ta_df = self.get_RSI(df=ta_df,close=close)
 
-        ta_df['Crossing Down EMA 20'] = self.crossing(ta_df,price='EMA 20',direction='down')
-
-        ta_df['Crossing Down EMA 50'] = self.crossing(ta_df,price='EMA 50', direction='down')
-
-        ta_df['Crossing Down EMA 200'] = self.crossing(ta_df,price='EMA 200', direction='down')
-
-        ta_df['Crossing Up EMA 20'] = self.crossing(ta_df,price='EMA 20', direction='up')
-
-        ta_df['Crossing Up EMA 50'] = self.crossing(ta_df,price='EMA 50', direction='up')
-
-        ta_df['Crossing Up EMA 200'] = self.crossing(ta_df,price='EMA 200', direction='up')
-
-        ta_df['Entering Sell Zone'] = self.crossing(ta_df,price='Bollinger Band Low Dev 1',direction='down')
-
-        ta_df['Entering Buy Zone'] = self.crossing(ta_df,price='Bollinger Band High Dev 1',direction='up')
+        ta_df['RSI AVG 14'] = ta_df['RSI'].rolling(window=14).mean()
         
         return ta_df
         

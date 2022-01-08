@@ -96,7 +96,9 @@ class FMP_CONNECTION(object):
 
                 historical_df.index = pd.to_datetime(historical_df.index, infer_datetime_format=True)
 
-                historical_df['change'] = historical_df['close'].pct_change()            
+                historical_df['change'] = historical_df['close'].pct_change()   
+
+                historical_df['realOpen'] = historical_df['close'].shift(1)         
             
 
             
@@ -112,6 +114,8 @@ class FMP_CONNECTION(object):
             historical_df = self._get_df(url,True)
 
             historical_df['change'] = historical_df['close'].pct_change()
+
+            historical_df['realOpen'] = historical_df['close'].shift(1)
 
             return historical_df
 
@@ -133,6 +137,9 @@ class FMP_CONNECTION(object):
 
             df['change'] = df['close'].pct_change()
 
+            df['realOpen'] = df['close'].shift(1)
+
+
             return df
 
         elif interval == '1m':
@@ -142,6 +149,8 @@ class FMP_CONNECTION(object):
             df = historical_df.drop_duplicates(subset=['monthly'],keep='first')
 
             df['change'] = df['close'].pct_change()
+
+            df['realOpen'] = df['close'].shift(1)
 
             return df
 
@@ -153,6 +162,8 @@ class FMP_CONNECTION(object):
 
             df['change'] = df['close'].pct_change()
 
+            df['realOpen'] = df['close'].shift(1)
+
             return df
 
         elif interval == '1y':
@@ -162,6 +173,8 @@ class FMP_CONNECTION(object):
             df = historical_df.drop_duplicates(subset=['year'],keep='first')
 
             df['change'] = df['close'].pct_change()
+
+            df['realOpen'] = df['close'].shift(1)
 
             return df
     
