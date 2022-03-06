@@ -14,6 +14,15 @@ class FMP_CONNECTION(object):
     
     def get_apikey(self) -> str:
         return self._api_key
+
+
+    def _merge_dfs(first_df:pd.DataFrame, second_df:pd.DataFrame, how:str = 'left'):
+
+        cols_to_use = second_df.columns.difference(first_df.columns)
+
+        new_df = pd.merge(first_df, second_df[cols_to_use], left_index=True, right_index=True, how=how)
+
+        return new_df
         
     def _get_df(self,url:str,is_historical:bool = False) -> pd.DataFrame:
         
@@ -483,6 +492,14 @@ class FMP_CONNECTION(object):
 
         return df
 
+    def get_etfs_list(self):
+
+        url = f'https://financialmodelingprep.com/api/v3/etf/list?apikey={self.get_apikey()}'
+
+        df = self._get_df(url)
+
+        return df
+
     def get_commitment_report_tickers(self):
 
         url = f'https://financialmodelingprep.com/api/v4/commitment_of_traders_report/list?apikey={self.get_apikey()}'
@@ -530,5 +547,52 @@ class FMP_CONNECTION(object):
 
         else:
             return None
+
+    def get_etf_holdings(self,ticker:str):
+
+        url = f'https://financialmodelingprep.com/api/v3/etf-holder/{ticker}?apikey={self.get_apikey()}'
+
+        df = self._get_df(url)
+
+        return df
+
+    def get_profile(self, ticker:str):
+
+        url = f'https://financialmodelingprep.com/api/v3/profile/{ticker}?apikey={self.get_apikey()}'
+
+        profile_df = self._get_df(url)
+
+        profile_df.set_index('symbol',inplace=True)
+
+        return profile_df
+
+    def get_all_tickers(self):
+
+        url = f'https://financialmodelingprep.com/api/v3/available-traded/list?apikey={self.get_apikey()}'
+
+        tickers_df = self._get_df(url)
+
+        return tickers_df
+
+    def get_financial_score(self,ticker:str):
+
+        url = f'https://financialmodelingprep.com/api/v4/score?symbol={ticker}&apikey={self.get_apikey()}'
+
+        score = self._get_df(url)
+
+        # score.set_index('symbol',inplace=True)
+
+        return score
+
+    def get_stock_overview(self,ticker:str):
+
+        company = self.company_quote(ticker=ticker)
+        profile = self.get_profile(ticker=ticker)
+
+        df = self._merge_dfs(company,profile)
+
+        return df
+
+
 
     

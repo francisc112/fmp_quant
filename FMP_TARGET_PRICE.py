@@ -8,16 +8,14 @@ class Target_Price:
     def __init__(self,
                  target_ticker:str,
                  option:str,
-                 price:float,
-                 target_price:float = None,
+                 price:str,
+                 target_price:str = None,
                  var_price:float = 10,
                  high_channel:float = None,
                  low_channel:float = None,
                  moving_up_pct:float = None,
                  moving_down_pct:float = None,
-                 only_once:bool = True,
-                 extra_text:str = None,
-                 is_crypto:bool = True):
+                 extra_text:str = None):
 
         self._price = price,
         self._target_ticker = target_ticker
